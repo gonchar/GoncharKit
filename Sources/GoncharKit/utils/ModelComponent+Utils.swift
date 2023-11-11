@@ -30,14 +30,17 @@ extension Entity {
     }
   }
   
+  public func addDoubleSide() {
+    self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
+      if let newMC = modelComponent.generetaDoubleSided(otherSideMaterial: nil) {
+        entity.components.set(newMC)
+      }
+    }
+  }
+  
   public func addDoubleSide(otherSideMaterial: RealityKit.Material) {
     self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
-      
-      let generateOwnMaterialSide = entity.components.has(GenerateDoubleSideComponent.self);
-      
-      var targetMaterial:Material? = generateOwnMaterialSide ? nil : otherSideMaterial
-      
-      if let newMC = modelComponent.generetaDoubleSided(otherSideMaterial: targetMaterial) {
+      if let newMC = modelComponent.generetaDoubleSided(otherSideMaterial: otherSideMaterial) {
         entity.components.set(newMC)
       }
     }
