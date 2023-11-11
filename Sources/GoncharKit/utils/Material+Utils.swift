@@ -1,6 +1,5 @@
 //
 //  Material+Utils.swift
-//  loonavision
 //
 //  Created by Sergey Gonchar on 19/10/2023.
 //

@@ -1,6 +1,5 @@
 //
 //  Entity+Utils.swift
-//  loonavision
 //
 //  Created by Sergey Gonchar on 02/10/2023.
 //
