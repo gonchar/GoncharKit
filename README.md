@@ -1,4 +1,4 @@
-# GoncharKit - RealityKit helper functions for visionOS
+# RealityKit helper functions for visionOS
 
 In the spirit of collaboration and knowledge sharing, I've decided to open source a selection of helper functions that I've developed during my journey of creating the first visionOS experience using RealityKit.
 
