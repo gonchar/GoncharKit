@@ -7,3 +7,9 @@ In the spirit of collaboration and knowledge sharing, I've decided to open sourc
 
 ## DoubleSided materials
 <img width="1078" alt="Screenshot 2023-11-11 at 19 53 00" src="https://github.com/gonchar/GoncharKit/assets/1416917/1768bc36-6d73-4400-a970-8e957ec86dca">
+
+## Skeleton Visualization
+```
+yourEntity?.visualizeBones()
+```
+<img width="1310" alt="Screenshot 2023-11-16 at 23 23 18" src="https://github.com/gonchar/GoncharKit/assets/1416917/05949eed-b649-4372-abc9-993577cbae9f">
