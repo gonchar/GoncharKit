@@ -8,6 +8,65 @@ import RealityKit
 import UIKit
 
 extension Entity {
+  func visualizeBones(size: Float = 0.5) {
+    var bonesDebug:Entity? = parent?.findEntity(named: "bonesDebug")
+    if bonesDebug == nil {
+      bonesDebug = Entity()
+      bonesDebug!.name = "bonesDebug"
+      parent?.addChild(bonesDebug!)
+    }
+    
+    var modelEntities:[ModelEntity] = []
+    
+    forEach(withComponent: ModelComponent.self) { entity, component in
+      if component.mesh.contents.skeletons.count > 0 {
+        if let modelEntity = entity as? ModelEntity {
+          modelEntities.append(modelEntity)
+        }
+      }
+    }
+    
+    for modelEntity in modelEntities {
+      
+      modelEntity.components.set(OpacityComponent(opacity: 0.5))
+      //create full map first
+      var jointsDict:[String:Transform] = [:]
+      for i in 0 ..< modelEntity.jointNames.count {
+        let jointName = modelEntity.jointNames[i]
+        let jointTrm = modelEntity.jointTransforms[i]
+        jointsDict[jointName] = jointTrm
+      }
+      
+      //
+      for i in 0 ..< modelEntity.jointNames.count {
+        let jointName = modelEntity.jointNames[i]
+        let allowedEntityName = jointName.replacing("/", with: "_")
+        let pathComponents = jointName.split(separator: "/")
+        
+        var boneDebug = bonesDebug?.findEntity(named: allowedEntityName)
+        if boneDebug == nil {
+          boneDebug = Entity()
+          boneDebug?.name = allowedEntityName
+          bonesDebug?.addChild(boneDebug!)
+          
+          let mesh = ModelEntity(mesh: .generateCone(height: size, radius: size / 3.0), materials: [SimpleMaterial(color: .purple, isMetallic: true)])
+          mesh.transform.translation = .init(x: 0.0, y: size / 2.0, z: 0.0)
+          boneDebug?.addChild(mesh)
+        }
+        
+        var combinedMatrix:float4x4 = .init(1.0)
+        
+        for i in (0 ..< pathComponents.count).reversed() {
+          let sampleJointName = (0 ... i).map { pathComponents[$0] }.joined(separator: "/")
+          combinedMatrix = jointsDict[sampleJointName]!.matrix * combinedMatrix
+        }
+        
+        let combinedTrm = Transform(matrix: combinedMatrix)
+        boneDebug?.transform = modelEntity.convert(transform: combinedTrm, to: bonesDebug)
+      }
+    }
+  }
+  
   static func createEntityBox(_ color: UIColor, size: Float) -> Entity {
     let model = ModelComponent(mesh: .generateBox(size: size), materials: [SimpleMaterial(color: color, isMetallic: true)])
     let result = Entity()
