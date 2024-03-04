@@ -12,6 +12,7 @@ extension Entity {
   
   public func addMeshOutline(outlineMaterial: RealityKit.Material, offset: Float) {
     self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
+      guard entity.isEnabled && entity.isEnabledInHierarchy else { return }
       if entity.components[IgnoreOutlineGenerationComponent.self] != nil {
         return;
       }
@@ -23,6 +24,7 @@ extension Entity {
   
   public func makeMeshResourcesUnique() {
     self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
+      guard entity.isEnabled && entity.isEnabledInHierarchy else { return }
       var newMC = modelComponent;
       newMC.makeMeshResourceUnique()
       entity.components.set(newMC)
@@ -31,14 +33,25 @@ extension Entity {
   
   public func addDoubleSide() {
     self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
+      guard entity.isEnabled && entity.isEnabledInHierarchy else { return }
       if let newMC = modelComponent.generetaDoubleSided(otherSideMaterial: nil) {
         entity.components.set(newMC)
       }
     }
   }
   
-  public func addDoubleSide(otherSideMaterial: RealityKit.Material) {
+  public func addDoubleSide(otherSideMaterial: RealityKit.Material, ignoreComponentTypes: [Component.Type]?) {
     self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
+      guard entity.isEnabled && entity.isEnabledInHierarchy else { return }
+      
+      if let ignoreComponentTypes = ignoreComponentTypes {
+        for i in 0 ..< ignoreComponentTypes.count {
+          if entity.components.has(ignoreComponentTypes[i].self) {
+            return;
+          }
+        }
+      }
+      
       if let newMC = modelComponent.generetaDoubleSided(otherSideMaterial: otherSideMaterial) {
         entity.components.set(newMC)
       }
@@ -50,10 +63,31 @@ extension ModelComponent {
   
   public mutating func makeMeshResourceUnique() {
     do {
+      var newContents = mesh.contents
+      triggerSkeleton(newContents: &newContents)
       self.mesh = try MeshResource.generate(from: mesh.contents)
     }
     catch {
       print("⚠️ GoncharKit::makeMeshResourceUnique. Can't generate new mesh")
+    }
+  }
+  
+  private func triggerSkeleton(newContents:inout MeshResource.Contents) {
+    guard newContents.skeletons.count > 0 else { return }
+    for model in newContents.models {
+      var parts = model.parts
+      for part in parts {
+        
+        if let buffer = part[MeshBuffers.jointInfluences] {
+          var newPart = part
+          newPart.jointInfluences = .init(influences: buffer, influencesPerVertex: buffer.count / newPart.positions.count)
+          parts.update(newPart)
+        }
+      }
+      
+      var newModel = model
+      newModel.parts = parts
+      newContents.models.update(newModel)
     }
   }
   
@@ -72,18 +106,18 @@ extension ModelComponent {
     
     for (_, contentModel) in newContents.models.enumerated() {
       var parts:[MeshResource.Part] = []
-      for (_, part) in contentModel.parts.enumerated() {
-        var newPart = part
-        newPart.id = part.id + "_other_side"
+      for (_, oldPart) in contentModel.parts.enumerated() {
+        var newPart = oldPart
+        newPart.id = oldPart.id + "_other_side"
         
         if otherSideMaterial == nil {
           //copy material to original side
-          newPart.materialIndex = part.materialIndex
+          newPart.materialIndex = oldPart.materialIndex
         } else {
           newPart.materialIndex = newMaterials.count - 1
         }
         
-        if let reversedTriangleIndices = part.triangleIndices?.elements.reversed() {
+        if let reversedTriangleIndices = oldPart.triangleIndices?.elements.reversed() {
           newPart.triangleIndices = MeshBuffer(reversedTriangleIndices)
         }
         
@@ -100,7 +134,6 @@ extension ModelComponent {
     }
     
     //create instances
-    
     for (_, contentInstance) in newContents.instances.enumerated() {
       var newInstance = contentInstance
       newInstance.id = contentInstance.id + "_other_side"
@@ -108,9 +141,11 @@ extension ModelComponent {
       newContents.instances.insert(newInstance)
     }
     
+    // trigger skeleton to fix a bug
+    triggerSkeleton(newContents: &newContents)
     
     do {
-      try newModelComponent.mesh.replace(with: newContents)
+      newModelComponent.mesh = try MeshResource.generate(from: newContents)
     } catch {
       print("⚠️ GoncharKit::generetaDoubleSided. Error replacing mesh: \(error)")
     }
@@ -191,7 +226,7 @@ extension ModelComponent {
         }
         newPart.positions = MeshBuffer(newPositions)
         newPart.materialIndex = occluderMaterialIndex
-        guard let triangleIndices = newPart.triangleIndices else {
+        guard newPart.triangleIndices != nil else {
           print("⚠️ GoncharKit::generateOutlineMeshParts. No triangle indices")
           return nil
         }
@@ -217,8 +252,11 @@ extension ModelComponent {
       newContents.instances.insert(newInstance)
     }
     
+    // trigger skeleton to fix a bug
+    triggerSkeleton(newContents: &newContents)
+    
     do {
-      try newModelComponent.mesh.replace(with: newContents)
+      newModelComponent.mesh = try MeshResource.generate(from: newContents)
     } catch {
       print("⚠️ GoncharKit::generateOutlineMeshParts. Error replacing mesh: \(error)")
     }

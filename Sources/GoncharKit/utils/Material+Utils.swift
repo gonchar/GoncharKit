@@ -16,9 +16,6 @@ extension PhysicallyBasedMaterial {
     target.normal = self.normal
     target.ambientOcclusion = self.ambientOcclusion
     target.blending = self.blending
-  }
-  
-  public func copyOpacity(_ target: inout PhysicallyBasedMaterial) {
-    target.blending = self.blending
+    // FYI we can't get opacityTexture from opaque physics material this is a bug, consider to switch to custom ShaderGraphMaterial
   }
 }

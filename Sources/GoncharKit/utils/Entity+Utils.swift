@@ -97,7 +97,7 @@ extension Entity {
     }
   }
   
-  func replaceAndStoreOldMaterials(material: Material, copyPBRInputs: Bool = true) {
+  func replaceAndStoreOldMaterials(material: Material, copyPBRInputs: Bool = false) {
     if var modelComponent = modelComponent {
       let count = modelComponent.materials.count
       
@@ -107,6 +107,7 @@ extension Entity {
       
       var mats:[RealityKit.Material] = []
       for i in 0..<count {
+        // this is quite custom logic, disabled by default
         if copyPBRInputs {
           if var newMaterial = material as? PhysicallyBasedMaterial, let oldMaterial = modelComponent.materials[i] as? PhysicallyBasedMaterial {
             oldMaterial.copyParametersExceptBaseColorTo(&newMaterial)
@@ -136,8 +137,107 @@ extension Entity {
       }
     }
     
-    children.forEach { child in
+    for child in children {
       child.restoreOriginalMaterials()
+    }
+  }
+  
+  func saveMaterialParam(paramName:String) {
+    guard isEnabled && isEnabledInHierarchy else { return }
+    if let modelComponent = modelComponent {
+      for i in 0 ..< modelComponent.materials.count {
+        if let shaderGraph = modelComponent.materials[i] as? ShaderGraphMaterial,
+           shaderGraph.parameterNames.contains(paramName),
+           let value = shaderGraph.getParameter(name: paramName)
+        {
+          components.set(SavedMaterialParamComponent(name: paramName, originalValue: value))
+        }
+      }
+    }
+    
+    for child in children {
+      child.saveMaterialParam(paramName: paramName)
+    }
+  }
+  
+  func getMaterialParam(paramName:String) -> MaterialParameters.Value? {
+    guard isEnabled && isEnabledInHierarchy else { return nil }
+    if let modelComponent = modelComponent {
+      for i in 0 ..< modelComponent.materials.count {
+        if let shaderGraph = modelComponent.materials[i] as? ShaderGraphMaterial,
+           shaderGraph.parameterNames.contains(paramName),
+           let value = shaderGraph.getParameter(name: paramName)
+//           case let MaterialParameters.Value.float(paramValue) = value
+        {
+          return value
+        }
+      }
+    }
+    
+    for child in children {
+      return child.getMaterialParam(paramName: paramName)
+    }
+    return nil
+  }
+  
+  func setMaterialParamWeight(paramName:String, value: Float) {
+    guard isEnabled && isEnabledInHierarchy else { return }
+    if var modelComponent = modelComponent {
+      for i in 0 ..< modelComponent.materials.count {
+        if var shaderGraph = modelComponent.materials[i] as? ShaderGraphMaterial,
+           shaderGraph.parameterNames.contains(paramName)
+        {
+          if let savedValue = components[SavedMaterialParamComponent.self],
+             savedValue.name == paramName {
+            
+            if case let MaterialParameters.Value.float(savedFloat) = savedValue.originalValue {
+              try? shaderGraph.setParameter(name: paramName, value: .float(value * savedFloat))
+            } else {
+              print("🛑 GoncharKit: Implementation mission for material value type \(savedValue.originalValue)")
+            }
+            
+          } else {
+            try? shaderGraph.setParameter(name: paramName, value: .float(value))
+          }
+          modelComponent.materials[i] = shaderGraph
+        }
+      }
+      components.set(modelComponent)
+    }
+    for child in children {
+      child.setMaterialParamWeight(paramName: paramName, value: value)
+    }
+  }
+  
+  
+  func setMaterialParam(paramName:String, value: MaterialParameters.Value) {
+    guard isEnabled && isEnabledInHierarchy else { return }
+    if var modelComponent = modelComponent {
+      for i in 0 ..< modelComponent.materials.count {
+        if var shaderGraph = modelComponent.materials[i] as? ShaderGraphMaterial,
+           shaderGraph.parameterNames.contains(paramName)
+        {
+          try? shaderGraph.setParameter(name: paramName, value: value)
+          modelComponent.materials[i] = shaderGraph
+        }
+      }
+      components.set(modelComponent)
+    }
+    for child in children {
+      child.setMaterialParam(paramName: paramName, value: value)
+    }
+  }
+}
+
+extension Entity {
+  func playAllAnimations(shouldLoop: Bool = false) {
+    for anim in availableAnimations {
+      if shouldLoop {
+        let newAnim = anim.repeat(duration: .infinity)
+        playAnimation(newAnim, transitionDuration: 0.1)
+      } else {
+        playAnimation(anim, transitionDuration: 0.1)
+      }
     }
   }
 }
@@ -161,6 +261,32 @@ extension Entity {
 }
 
 extension Entity {
+  func findParentWithName(_ findName: String) -> Entity? {
+    if name == findName {
+      return self
+    }
+    
+    if let parent = parent {
+      return parent.findParentWithName(findName)
+    }
+    
+    return nil
+  }
+  
+  func findParentWithAnyComponents(withComponents componentClasses: [Component.Type]) -> Entity? {
+    for componentClass in componentClasses {
+      if components.has(componentClass) {
+        return self
+      }
+    }
+    
+    if let parent = parent {
+      return parent.findParentWithAnyComponents(withComponents: componentClasses)
+    }
+    
+    return nil
+  }
+  
   func findParentWithComponent<T: Component>(withComponent componentClass: T.Type) -> Entity? {
     if components.has(componentClass) {
       return self
@@ -171,6 +297,34 @@ extension Entity {
     }
     
     return nil
+  }
+  
+  func findFirstComponent<T: Component>(withComponent componentClass: T.Type) -> T? {
+    if let component = self.components[componentClass] {
+      return component
+    }
+    
+    for child in children {
+      if let success = child.findFirstComponent(withComponent: componentClass) {
+        return success
+      }
+    }
+    
+    return nil
+  }
+  
+  func hasComponentInHierarchy<T: Component>(withComponent componentClass: T.Type) -> Bool {
+    if self.components.has(componentClass) {
+      return true
+    }
+    
+    for child in children {
+      if child.hasComponentInHierarchy(withComponent: componentClass) {
+        return true
+      }
+    }
+    
+    return false
   }
   
   /// Recursive search of children looking for any descendants with a specific component and calling a closure with them.
@@ -202,5 +356,91 @@ extension Entity {
       child.removeComponentFromHierarchy(componentType: componentType)
     }
   }
+  
+  func fixObjectPivot() -> Entity? {
+    if let parent = parent {
+      let bounds = visualBounds(relativeTo: parent)
+      let newEntity = Entity()
+      newEntity.transform.translation = bounds.center
+      parent.addChild(newEntity)
+      
+      let newTrm = parent.convert(transform: transform, to: newEntity)
+      newEntity.addChild(self)
+      transform = newTrm
+      
+      return newEntity
+    }
+    return nil
+  }
 }
 
+
+extension Entity {
+  
+  func generateCollisionsForEnabledOnly() {
+    guard isEnabled && isEnabledInHierarchy else { return }
+    if components.has(ModelComponent.self) {
+      components.remove(CollisionComponent.self)
+      generateCollisionShapes(recursive: false, static: true)
+    }
+    
+    for child in children {
+      child.generateCollisionsForEnabledOnly()
+    }
+  }
+  
+  func generatePreciseCollisionsForEachEnabled<T: Component>(withComponent componentClass: T.Type) async {
+    guard isEnabled && isEnabledInHierarchy else { return }
+    
+    if self.components.has(componentClass)
+    {
+      await generatePreciseCollisionShapes()
+    }
+    
+    for child in children {
+      await child.generatePreciseCollisionsForEachEnabled(withComponent: componentClass)
+    }
+  }
+  
+  func generatePreciseCollisionShapes() async {
+    guard isEnabled && isEnabledInHierarchy else { return }
+    if let mc = components[ModelComponent.self] {
+      var shapes:[ShapeResource] = []
+      for model in mc.mesh.contents.models {
+        var positions:[SIMD3<Float>] = []
+        var indices:[UInt16] = []
+        for part in model.parts {
+          positions += part.positions.elements
+          indices += part.triangleIndices!.elements.map { UInt16($0) }
+        }
+        //todo: support bones
+        let newShape = try! await ShapeResource.generateStaticMesh(positions: positions, faceIndices: indices)
+        shapes.append(newShape)
+      }
+      components.set(CollisionComponent(shapes: shapes))
+    }
+    
+    for child in children {
+      await child.generatePreciseCollisionShapes()
+    }
+  }
+}
+
+extension Entity {
+  func stopEmittingParticleEmitters() {
+    forEachDescendant(withComponent: ParticleEmitterComponent.self) { ent, _ in
+      ent.components[ParticleEmitterComponent.self]?.isEmitting = false
+    }
+  }
+  
+  func removeAllParticleEmitters() {
+    removeComponentFromHierarchy(componentType: ParticleEmitterComponent.self)
+  }
+  
+  func playAllParticles() {
+    forEach(withComponent: ParticleEmitterComponent.self) { ent, _ in
+      ent.components[ParticleEmitterComponent.self]?.isEmitting = true
+      ent.components[ParticleEmitterComponent.self]?.restart()
+    }
+  }
+}
