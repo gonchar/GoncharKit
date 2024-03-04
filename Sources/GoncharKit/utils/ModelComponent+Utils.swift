@@ -7,58 +7,6 @@
 import Foundation
 import RealityKit
 
-
-extension Entity {
-  
-  public func addMeshOutline(outlineMaterial: RealityKit.Material, offset: Float) {
-    self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
-      guard entity.isEnabled && entity.isEnabledInHierarchy else { return }
-      if entity.components[IgnoreOutlineGenerationComponent.self] != nil {
-        return;
-      }
-      if let newMC = modelComponent.generateOutlineMeshParts(outlineMaterial: outlineMaterial, offset: offset) {
-        entity.components.set(newMC)
-      }
-    }
-  }
-  
-  public func makeMeshResourcesUnique() {
-    self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
-      guard entity.isEnabled && entity.isEnabledInHierarchy else { return }
-      var newMC = modelComponent;
-      newMC.makeMeshResourceUnique()
-      entity.components.set(newMC)
-    }
-  }
-  
-  public func addDoubleSide() {
-    self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
-      guard entity.isEnabled && entity.isEnabledInHierarchy else { return }
-      if let newMC = modelComponent.generetaDoubleSided(otherSideMaterial: nil) {
-        entity.components.set(newMC)
-      }
-    }
-  }
-  
-  public func addDoubleSide(otherSideMaterial: RealityKit.Material, ignoreComponentTypes: [Component.Type]?) {
-    self.forEach(withComponent: ModelComponent.self) { entity, modelComponent in
-      guard entity.isEnabled && entity.isEnabledInHierarchy else { return }
-      
-      if let ignoreComponentTypes = ignoreComponentTypes {
-        for i in 0 ..< ignoreComponentTypes.count {
-          if entity.components.has(ignoreComponentTypes[i].self) {
-            return;
-          }
-        }
-      }
-      
-      if let newMC = modelComponent.generetaDoubleSided(otherSideMaterial: otherSideMaterial) {
-        entity.components.set(newMC)
-      }
-    }
-  }
-}
-
 extension ModelComponent {
   
   public mutating func makeMeshResourceUnique() {
