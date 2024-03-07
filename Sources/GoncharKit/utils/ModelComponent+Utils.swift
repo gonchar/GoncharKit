@@ -208,7 +208,7 @@ extension ModelComponent {
     } catch {
       print("⚠️ GoncharKit::generateOutlineMeshParts. Error replacing mesh: \(error)")
     }
-  
+    
     return newModelComponent
   }
   

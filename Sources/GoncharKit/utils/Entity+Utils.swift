@@ -7,6 +7,17 @@
 import RealityKit
 import UIKit
 
+func getVisualise(_ name: String, color: UIColor, scene:RealityKit.Scene?) -> Entity? {
+  guard let appRoot = scene?.findEntity(named: "appRoot") else { return nil }
+  if let any = appRoot.findEntity(named: name) {
+    return any
+  }
+  let vis = Entity.createEntityBox(color, size: 0.02)
+  vis.name = name
+  appRoot.addChild(vis)
+  return vis
+}
+
 extension Entity {
   func visualizeBones(size: Float = 0.5) {
     var bonesDebug:Entity? = parent?.findEntity(named: "bonesDebug")
