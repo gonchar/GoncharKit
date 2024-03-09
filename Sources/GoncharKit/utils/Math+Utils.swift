@@ -34,7 +34,7 @@ extension simd_float4x4 {
               SIMD4<Float>(vector.x, vector.y, vector.z, 1))
   }
   
-  var translation: SIMD3<Float> {
+  public var translation: SIMD3<Float> {
     get {
       columns.3.xyz
     }
@@ -43,7 +43,7 @@ extension simd_float4x4 {
     }
   }
   
-  var rotation: simd_quatf {
+  public var rotation: simd_quatf {
     simd_quatf(rotationMatrix)
   }
   

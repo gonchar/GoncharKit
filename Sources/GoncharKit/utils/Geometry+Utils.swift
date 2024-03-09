@@ -3,25 +3,25 @@ import RealityKit
 import ARKit
 
 extension GeometrySource {
-  func asArray<T>(ofType: T.Type) -> [T] {
+  public func asArray<T>(ofType: T.Type) -> [T] {
     assert(MemoryLayout<T>.stride == stride, "Invalid stride \(MemoryLayout<T>.stride); expected \(stride)")
     return (0..<count).map {
       buffer.contents().advanced(by: offset + stride * Int($0)).assumingMemoryBound(to: T.self).pointee
     }
   }
   
-  func asSIMD3<T>(ofType: T.Type) -> [SIMD3<T>] {
+  public func asSIMD3<T>(ofType: T.Type) -> [SIMD3<T>] {
     asArray(ofType: (T, T, T).self).map { .init($0.0, $0.1, $0.2) }
   }
   
-  subscript(_ index: Int32) -> (Float, Float, Float) {
+  public subscript(_ index: Int32) -> (Float, Float, Float) {
     precondition(format == .float3, "This subscript operator can only be used on GeometrySource instances with format .float3")
     return buffer.contents().advanced(by: offset + (stride * Int(index))).assumingMemoryBound(to: (Float, Float, Float).self).pointee
   }
 }
 
 extension GeometryElement {
-  subscript(_ index: Int) -> [Int32] {
+  public subscript(_ index: Int) -> [Int32] {
     precondition(bytesPerIndex == MemoryLayout<Int32>.size,
                      """
 This subscript operator can only be used on GeometryElement instances with bytesPerIndex == \(MemoryLayout<Int32>.size).
@@ -39,7 +39,7 @@ This GeometryElement has bytesPerIndex == \(bytesPerIndex)
     return data
   }
   
-  func asInt32Array() -> [Int32] {
+  public func asInt32Array() -> [Int32] {
     var data = [Int32]()
     let totalNumberOfInt32 = count * primitive.indexCount
     data.reserveCapacity(totalNumberOfInt32)
@@ -49,7 +49,7 @@ This GeometryElement has bytesPerIndex == \(bytesPerIndex)
     return data
   }
   
-  func asUInt16Array() -> [UInt16] {
+  public func asUInt16Array() -> [UInt16] {
     asInt32Array().map { UInt16($0) }
   }
   
@@ -59,7 +59,7 @@ This GeometryElement has bytesPerIndex == \(bytesPerIndex)
 }
 
 extension MeshResource.Contents {
-  init(planeGeometry: PlaneAnchor.Geometry) {
+  public init(planeGeometry: PlaneAnchor.Geometry) {
     self.init()
     self.instances = [MeshResource.Instance(id: "main", model: "model")]
     var part = MeshResource.Part(id: "part", materialIndex: 0)
