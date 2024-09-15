@@ -26,7 +26,7 @@ extension Entity {
     return vis
   }
   
-  func visualizeBones(size: Float = 0.5) {
+  public func visualizeBones(size: Float = 0.5) {
     var bonesDebug:Entity? = parent?.findEntity(named: "bonesDebug")
     if bonesDebug == nil {
       bonesDebug = Entity()
